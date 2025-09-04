@@ -23,6 +23,11 @@ for message in st.session_state.messages:
 
 # React to user input
 if prompt := st.chat_input("What would you like to know about your portfolio?"):
+    prompt = prompt.strip()
+    if not prompt:
+        st.warning("Please enter a question.")
+        st.stop()
+
     # Display user message in chat message container
     st.chat_message("user").markdown(prompt)
     # Add user message to chat history
@@ -73,3 +78,4 @@ if prompt := st.chat_input("What would you like to know about your portfolio?"):
 
         except Exception as e:
             st.error(f"An error occurred while communicating with the AI: {e}")
+

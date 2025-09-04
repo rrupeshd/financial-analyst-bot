@@ -5,4 +5,3 @@ plotly
 yfinance
 google-generativeai
 duckduckgo-search
-streamlit-chat

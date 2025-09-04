@@ -39,17 +39,21 @@ def get_stock_news(symbol):
     try:
         query = f"latest financial news for {symbol} stock"
         with DDGS() as ddgs:
-            results = [r for r in ddgs.news(query, region='wt-wt', safesearch='off', timelimit='w', max_results=5)]
+            results = list(ddgs.news(query, region='en-in', safesearch='moderate', max_results=5))
         
-        # Simulate a more structured news API response
         formatted_results = []
+        if not results:
+            return []
+
         for res in results:
-            formatted_results.append({
-                'title': res.get('title'),
-                'url': res.get('url'),
-                'source': {'name': res.get('source')},
-                'publishedAt': res.get('date') 
-            })
+            # Defensive check to ensure the result is a dictionary
+            if isinstance(res, dict):
+                formatted_results.append({
+                    'title': res.get('title', 'No title available'),
+                    'url': res.get('url', '#'),
+                    'source': {'name': res.get('source', 'Unknown source')},
+                    'publishedAt': res.get('date', 'No date available') 
+                })
         return formatted_results
     except Exception as e:
         print(f"Error fetching news for {symbol}: {e}")
@@ -63,8 +67,11 @@ def get_all_news(symbols):
         if news:
             news_list.append(f"\n--- News for {symbol} ---\n")
             for item in news:
-                news_list.append(f"- {item['title']}")
-    return "\n".join(news_list) if news_list else "No news found for the stocks in the portfolio."
+                # Safely get the title
+                title = item.get('title')
+                if title:
+                    news_list.append(f"- {title}")
+    return "\n".join(news_list) if news_list else "No recent news found for the stocks in the portfolio."
 
 
 # --- Gemini AI Functions ---
@@ -148,4 +155,5 @@ def parse_portfolio_file(uploaded_file):
     except Exception as e:
         st.error(f"Failed to parse portfolio file: {e}")
         return None
+
 

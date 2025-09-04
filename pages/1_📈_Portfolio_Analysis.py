@@ -17,12 +17,11 @@ portfolio_df = st.session_state['portfolio_df']
 
 # --- Data Processing and Analysis ---
 try:
-    # Standardize column names
-    portfolio_df.columns = [col.lower().replace(' ', '_') for col in portfolio_df.columns]
-    
+    # The new parser function in utils.py already standardizes column names.
+    # We just need to ensure the columns exist.
     required_cols = ['stock_symbol', 'quantity', 'average_price']
     if not all(col in portfolio_df.columns for col in required_cols):
-        st.error(f"The uploaded file must contain the following columns: {', '.join(required_cols)}")
+        st.error(f"The portfolio data is missing required columns. Expected: {', '.join(required_cols)}")
         st.stop()
 
     with st.spinner("Fetching live stock data and news... This may take a moment."):
@@ -104,8 +103,12 @@ try:
                 news = get_stock_news(selected_stock)
                 if news:
                     for item in news:
-                        st.write(f"**[{item['title']}]({item['url']})**")
-                        st.caption(f"Source: {item['source']['name']} | Published: {item['publishedAt']}")
+                        title = item.get('title', 'No title available')
+                        url = item.get('url', '#')
+                        source = item.get('source', {}).get('name', 'Unknown source')
+                        published_at = item.get('publishedAt', 'N/A')
+                        st.write(f"**[{title}]({url})**")
+                        st.caption(f"Source: {source} | Published: {published_at}")
                 else:
                     st.write("No recent news found.")
 
@@ -124,3 +127,5 @@ try:
 except Exception as e:
     st.error(f"An error occurred during analysis: {e}")
     st.info("Please ensure your Excel file is formatted correctly and stock symbols are valid.")
+
+
