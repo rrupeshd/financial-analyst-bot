@@ -82,3 +82,70 @@ def get_gemini_response(prompt):
     except Exception as e:
         print(f"Error communicating with Gemini API: {e}")
         return f"An error occurred while generating the AI response: {e}"
+
+def parse_portfolio_file(uploaded_file):
+    """
+    Parses the uploaded portfolio file, supporting both simple and Zerodha formats.
+    Returns a standardized DataFrame or None if parsing fails.
+    """
+    try:
+        # Try reading multiple sheets if available, prioritizing 'Equity' for Zerodha reports
+        xls = pd.ExcelFile(uploaded_file)
+        df = None
+        if 'Equity' in xls.sheet_names:
+            df = pd.read_excel(uploaded_file, sheet_name='Equity')
+        else:
+            df = pd.read_excel(uploaded_file)
+
+        # --- Attempt 1: Simple format ---
+        # Create a copy for manipulation
+        df_simple_check = df.copy()
+        # Standardize column names for checking
+        df_simple_check.columns = [str(col).strip().lower().replace(' ', '_') for col in df_simple_check.columns]
+        simple_cols = {'stock_symbol': 'stock_symbol', 'quantity': 'quantity', 'average_price': 'average_price'}
+        
+        if all(col in df_simple_check.columns for col in simple_cols.keys()):
+            df_simple_check = df_simple_check.rename(columns=simple_cols)
+            # Ensure required columns are numeric
+            df_simple_check['quantity'] = pd.to_numeric(df_simple_check['quantity'], errors='coerce')
+            df_simple_check['average_price'] = pd.to_numeric(df_simple_check['average_price'], errors='coerce')
+            return df_simple_check[['stock_symbol', 'quantity', 'average_price']].dropna()
+
+        # --- Attempt 2: Zerodha format ---
+        # Find the header row which contains 'Symbol' and 'ISIN'
+        header_row_index = -1
+        for i, row in df.iterrows():
+            row_str = ''.join(map(str, row.values))
+            if 'Symbol' in row_str and 'ISIN' in row_str:
+                header_row_index = i
+                break
+        
+        if header_row_index != -1:
+            # Re-read the file skipping the header rows
+            if 'Equity' in xls.sheet_names:
+                df = pd.read_excel(uploaded_file, sheet_name='Equity', skiprows=header_row_index + 1)
+            else:
+                df = pd.read_excel(uploaded_file, skiprows=header_row_index + 1)
+
+            zerodha_cols = {
+                'Symbol': 'stock_symbol',
+                'Quantity Available': 'quantity',
+                'Average Price': 'average_price'
+            }
+            
+            # Check if all required zerodha columns are present
+            if all(col in df.columns for col in zerodha_cols.keys()):
+                df = df[list(zerodha_cols.keys())].rename(columns=zerodha_cols)
+                # Append .NS for yfinance compatibility, assuming NSE stocks
+                df['stock_symbol'] = df['stock_symbol'].astype(str).str.strip() + '.NS'
+                # Ensure required columns are numeric
+                df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce')
+                df['average_price'] = pd.to_numeric(df['average_price'], errors='coerce')
+                return df[['stock_symbol', 'quantity', 'average_price']].dropna()
+
+        return None # Return None if no valid format is found
+
+    except Exception as e:
+        st.error(f"Failed to parse portfolio file: {e}")
+        return None
+

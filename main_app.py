@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+from utils import parse_portfolio_file # Import the new parser function
 
 # Set page configuration
 st.set_page_config(
@@ -23,13 +24,13 @@ def main():
     
     **Get started by following these simple steps:**
     1.  **Upload your Portfolio**: Use the uploader below to upload an Excel file (`.xlsx`) of your stock portfolio.
-        The file should contain columns like 'Stock Symbol', 'Quantity', and 'Average Price'.
+        The app supports both simple formats and Zerodha's holdings report.
     2.  **Analyze Your Portfolio**: Navigate to the `Portfolio Analysis` page to see a detailed breakdown of your holdings,
         including current values, profit/loss, and the latest news for each stock.
     3.  **Chat with the AI Analyst**: Go to the `AI Financial Analyst` page to ask questions about your portfolio,
         market trends, or specific stocks.
         
-    **Note**: Ensure your stock symbols are correct as per market listings (e.g., 'RELIANCE.NS' for Reliance Industries on NSE).
+    **Note**: The app will automatically try to append `.NS` to stock symbols for compatibility with Indian market data.
     """)
 
     st.sidebar.header("Portfolio Upload")
@@ -38,20 +39,27 @@ def main():
 
     if uploaded_file is not None:
         try:
-            # Read the uploaded Excel file
-            portfolio_df = pd.read_excel(uploaded_file, engine='openpyxl')
+            # Use the new robust parsing function from utils
+            portfolio_df = parse_portfolio_file(uploaded_file)
             
-            # Store the portfolio dataframe in the session state
-            st.session_state['portfolio_df'] = portfolio_df
-            
-            st.sidebar.success("Portfolio uploaded successfully!")
-            
-            st.subheader("Your Uploaded Portfolio")
-            st.dataframe(portfolio_df)
+            if portfolio_df is not None and not portfolio_df.empty:
+                # Store the portfolio dataframe in the session state
+                st.session_state['portfolio_df'] = portfolio_df
+                
+                st.sidebar.success("Portfolio parsed successfully!")
+                
+                st.subheader("Your Parsed Portfolio")
+                st.dataframe(portfolio_df)
+            else:
+                st.sidebar.error("Could not recognize the file format.")
+                st.error("The uploaded Excel file format is not supported. Please check the README for supported formats.")
+                if 'portfolio_df' in st.session_state:
+                    del st.session_state['portfolio_df']
+
 
         except Exception as e:
-            st.sidebar.error(f"Error reading the file: {e}")
-            st.error("There was an issue processing your Excel file. Please ensure it's in the correct format.")
+            st.sidebar.error(f"Error processing the file: {e}")
+            st.error("There was an issue processing your Excel file. Please ensure it's a valid `.xlsx` file.")
 
     else:
         st.info("Please upload a portfolio file to begin analysis.")
@@ -61,3 +69,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
